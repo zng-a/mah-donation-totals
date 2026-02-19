@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MAH · Ramadan Donation Tracker 2026</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f5f1; }
+
+    /* Header gradient */
+    .header-bg { background: linear-gradient(150deg, #0c3d22 0%, #1a6b3c 60%, #145930 100%); }
+
+    /* Decorative gold border */
+    .gold-bar { height: 3px; background: linear-gradient(90deg, transparent, #c9a227, #f0ce6a, #c9a227, transparent); }
+
+    /* Card base */
+    .card { background: #fff; border-radius: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+
+    /* Stat card accent bar */
+    .stat-card { position: relative; overflow: hidden; }
+    .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; border-radius: 4px 0 0 4px; }
+    .accent-green::before  { background: #1a6b3c; }
+    .accent-blue::before   { background: #3b82f6; }
+    .accent-amber::before  { background: #f59e0b; }
+    .accent-purple::before { background: #8b5cf6; }
+    .accent-rose::before   { background: #f43f5e; }
+
+    /* Progress bar */
+    .progress-track { background: rgba(255,255,255,0.15); border-radius: 100px; overflow: hidden; }
+    .progress-fill  { border-radius: 100px; transition: width 0.8s ease; background: linear-gradient(90deg, #c9a227, #f0ce6a); }
+
+    /* Table */
+    .data-table tbody tr { border-bottom: 1px solid #f3f4f6; transition: background 0.15s; }
+    .data-table tbody tr:last-child { border-bottom: none; }
+    .data-table tbody tr:hover { background: #f9fbf9 !important; }
+    .today-row { background: #f0fdf4 !important; }
+    .today-row td { color: #14532d; }
+
+    /* Spinner */
+    .spin { animation: spin 0.9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Mobile hide */
+    @media (max-width: 700px) { .hide-sm { display: none !important; } }
+
+    /* Tooltip for method legend pct bar */
+    .pct-bar { height: 6px; border-radius: 100px; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <!-- ═══════════════════════ HEADER ═══════════════════════ -->
+  <header class="header-bg">
+    <div class="gold-bar"></div>
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-3">
+            <span class="text-4xl">🕌</span>
+            <div>
+              <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight leading-tight">
+                MAH Ramadan Donation Tracker
+              </h1>
+              <p class="text-emerald-300 text-sm mt-0.5">
+                Ramadan 1447 &nbsp;·&nbsp; <span id="header-day-label">Loading…</span>
+              </p>
+            </div>
+          </div>
+          <!-- Ramadan progress bar -->
+          <div class="mt-4 max-w-xs">
+            <div class="flex justify-between text-xs text-emerald-300 mb-1">
+              <span>Day 1</span>
+              <span id="progress-label">—</span>
+              <span>Day 29</span>
+            </div>
+            <div class="progress-track h-2">
+              <div id="progress-fill" class="progress-fill h-2" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="text-right">
+          <div id="header-total" class="text-5xl sm:text-6xl font-bold text-white tabular-nums">£—</div>
+          <div class="text-emerald-300 text-sm mt-1">Total Raised</div>
+          <div class="text-emerald-400 text-xs mt-0.5">Updated <span id="last-updated">—</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="gold-bar" style="opacity:0.4;"></div>
+  </header>
+
+  <!-- ═══════════════════════ LOADING ═══════════════════════ -->
+  <div id="loading" class="flex items-center justify-center py-24">
+    <div class="text-center">
+      <div class="inline-block w-10 h-10 border-4 border-emerald-200 border-t-emerald-600 rounded-full spin mb-4"></div>
+      <p class="text-gray-500 text-sm">Loading donation data…</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ ERROR ═══════════════════════ -->
+  <div id="error-box" class="hidden max-w-6xl mx-auto px-4 py-8">
+    <div class="card p-6 text-center border-2 border-red-100">
+      <div class="text-3xl mb-2">⚠️</div>
+      <p class="text-red-600 font-semibold">Unable to load data</p>
+      <p class="text-gray-400 text-sm mt-1" id="error-msg">Please check the sheet is publicly accessible.</p>
+      <button onclick="loadData()"
+        class="mt-4 px-5 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-medium">
+        Retry
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ MAIN ═══════════════════════ -->
+  <main id="main" class="hidden max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+
+    <!-- ── Stat cards ── -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div class="card stat-card accent-green p-4 pl-5">
+        <div id="stat-today" class="text-2xl font-bold text-gray-800 tabular-nums">—</div>
+        <div class="text-xs text-gray-400 mt-0.5">Today · Day <span id="stat-today-day">—</span></div>
+      </div>
+      <div class="card stat-card accent-blue p-4 pl-5">
+        <div id="stat-avg" class="text-2xl font-bold text-gray-800 tabular-nums">—</div>
+        <div class="text-xs text-gray-400 mt-0.5">Daily Average</div>
+      </div>
+      <div class="card stat-card accent-amber p-4 pl-5">
+        <div id="stat-best" class="text-2xl font-bold text-gray-800 tabular-nums">—</div>
+        <div class="text-xs text-gray-400 mt-0.5">Best Day · <span id="stat-best-day">—</span></div>
+      </div>
+      <div class="card stat-card accent-purple p-4 pl-5">
+        <div id="stat-days" class="text-2xl font-bold text-gray-800">—</div>
+        <div class="text-xs text-gray-400 mt-0.5">Days Recorded</div>
+      </div>
+      <div class="card stat-card accent-rose p-4 pl-5 col-span-2 sm:col-span-1">
+        <div id="stat-remaining" class="text-2xl font-bold text-gray-800">—</div>
+        <div class="text-xs text-gray-400 mt-0.5">Days Remaining</div>
+      </div>
+    </div>
+
+    <!-- ── Payment method breakdown cards ── -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="card p-4 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style="background:#eff6ff;">💻</div>
+        <div>
+          <div id="method-website" class="text-xl font-bold text-gray-800 tabular-nums">—</div>
+          <div class="text-xs text-gray-400">Website</div>
+          <div class="pct-bar mt-1.5 bg-blue-100"><div id="pct-website" class="pct-bar bg-blue-400" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div class="card p-4 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style="background:#f5f3ff;">💳</div>
+        <div>
+          <div id="method-card" class="text-xl font-bold text-gray-800 tabular-nums">—</div>
+          <div class="text-xs text-gray-400">Card Machine</div>
+          <div class="pct-bar mt-1.5 bg-purple-100"><div id="pct-card" class="pct-bar bg-purple-400" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div class="card p-4 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style="background:#fffbeb;">💵</div>
+        <div>
+          <div id="method-cash" class="text-xl font-bold text-gray-800 tabular-nums">—</div>
+          <div class="text-xs text-gray-400">Cash</div>
+          <div class="pct-bar mt-1.5 bg-amber-100"><div id="pct-cash" class="pct-bar bg-amber-400" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div class="card p-4 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style="background:#f0fdfa;">🏦</div>
+        <div>
+          <div id="method-bank" class="text-xl font-bold text-gray-800 tabular-nums">—</div>
+          <div class="text-xs text-gray-400">Bank Transfer</div>
+          <div class="pct-bar mt-1.5 bg-teal-100"><div id="pct-bank" class="pct-bar bg-teal-400" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Charts ── -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+      <!-- Daily stacked bar + running total line (2/3 width) -->
+      <div class="card p-5 lg:col-span-2">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold text-gray-700">Daily Donations</h3>
+          <span class="text-xs text-gray-400">Stacked by method · line = running total</span>
+        </div>
+        <div style="height:280px; position:relative;">
+          <canvas id="daily-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Method doughnut (1/3 width) -->
+      <div class="card p-5">
+        <h3 class="font-semibold text-gray-700 mb-4">By Payment Method</h3>
+        <div style="height:180px; position:relative;">
+          <canvas id="method-chart"></canvas>
+        </div>
+        <div id="method-legend" class="mt-4 space-y-2"></div>
+      </div>
+    </div>
+
+    <!-- ── Day-by-day table ── -->
+    <div class="card overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h3 class="font-semibold text-gray-700">Day-by-Day Breakdown</h3>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="data-table w-full text-sm">
+          <thead class="bg-gray-50 text-gray-400 text-xs uppercase tracking-wider">
+            <tr>
+              <th class="px-5 py-3 text-left">Day</th>
+              <th class="px-5 py-3 text-left hide-sm">Date</th>
+              <th class="px-4 py-3 text-right">Website</th>
+              <th class="px-4 py-3 text-right hide-sm">Card</th>
+              <th class="px-4 py-3 text-right hide-sm">Cash</th>
+              <th class="px-4 py-3 text-right hide-sm">Bank</th>
+              <th class="px-4 py-3 text-right">Daily Total</th>
+              <th class="px-5 py-3 text-right">Running Total</th>
+            </tr>
+          </thead>
+          <tbody id="table-body" class="text-gray-700"></tbody>
+          <tfoot>
+            <tr class="bg-emerald-50 border-t-2 border-emerald-100 font-semibold text-emerald-900">
+              <td class="px-5 py-3 text-sm" colspan="2">Totals</td>
+              <td id="foot-website" class="px-4 py-3 text-right tabular-nums">—</td>
+              <td id="foot-card"    class="px-4 py-3 text-right tabular-nums hide-sm">—</td>
+              <td id="foot-cash"    class="px-4 py-3 text-right tabular-nums hide-sm">—</td>
+              <td id="foot-bank"    class="px-4 py-3 text-right tabular-nums hide-sm">—</td>
+              <td id="foot-daily"   class="px-4 py-3 text-right tabular-nums">—</td>
+              <td class="px-5 py-3 text-right tabular-nums text-emerald-700">
+                <span id="foot-total">—</span>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <p class="text-center text-xs text-gray-400 pb-4">
+      Auto-refreshes every 5 minutes &nbsp;·&nbsp; Data from Google Sheets
+    </p>
+  </main>
+
+  <!-- ═══════════════════════ SCRIPT ═══════════════════════ -->
+  <script>
+  // ─────────────────────────────────────────────────────────
+  // CONFIG — adjust if Ramadan start date changes
+  // ─────────────────────────────────────────────────────────
+  const SHEET_ID      = '11RKZ1P2Goi0PIG7Ydi0Sr0c075wJX9UbnTJLq8gpeGU';
+  const RAMADAN_START = new Date('2026-02-17T00:00:00'); // Ramadan 1 = 17 Feb 2026
+  const RAMADAN_DAYS  = 29;
+  const CURRENCY      = '£';
+  const REFRESH_MS    = 5 * 60 * 1000; // 5 minutes
+
+  // Fetch URL — works for public "anyone with link" sheets
+  const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv`;
+
+  // Method display config
+  const METHODS = [
+    { key: 'website', label: 'Website',       icon: '💻', bg: 'rgba(59,130,246,0.82)',  solid: '#3b82f6' },
+    { key: 'card',    label: 'Card Machine',  icon: '💳', bg: 'rgba(139,92,246,0.82)',  solid: '#8b5cf6' },
+    { key: 'cash',    label: 'Cash',          icon: '💵', bg: 'rgba(245,158,11,0.82)',  solid: '#f59e0b' },
+    { key: 'bank',    label: 'Bank Transfer', icon: '🏦', bg: 'rgba(20,184,166,0.82)',  solid: '#14b8a6' },
+  ];
+
+  let dailyChart  = null;
+  let methodChart = null;
+
+  // ─────────────────────────────────────────────────────────
+  // Helpers
+  // ─────────────────────────────────────────────────────────
+  const fmt = (n) =>
+    n === 0 ? `${CURRENCY}0` : `${CURRENCY}${Math.round(n).toLocaleString('en-GB')}`;
+
+  const fmtDate = (d) =>
+    d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+
+  const parseAmt = (v) => {
+    if (!v || typeof v !== 'string' || !v.trim()) return 0;
+    const n = parseFloat(v.replace(/[^0-9.]/g, ''));
+    return isNaN(n) ? 0 : n;
+  };
+
+  const todayRamadanDay = () => {
+    const now = new Date(); now.setHours(0,0,0,0);
+    const s   = new Date(RAMADAN_START); s.setHours(0,0,0,0);
+    return Math.floor((now - s) / 86400000) + 1;
+  };
+
+  // ─────────────────────────────────────────────────────────
+  // Data fetching & processing
+  // ─────────────────────────────────────────────────────────
+  function fetchAndProcess() {
+    return new Promise((resolve, reject) => {
+      Papa.parse(CSV_URL, {
+        download: true,
+        header: true,
+        skipEmptyLines: false,
+        complete: (r) => {
+          try { resolve(process(r.data)); }
+          catch (e) { reject(e); }
+        },
+        error: reject,
+      });
+    });
+  }
+
+  function process(rows) {
+    const dayNum = todayRamadanDay();
+
+    // Index rows by day number
+    const map = {};
+    for (const row of rows) {
+      const d = parseInt(row['Date'] || '');
+      if (d >= 1 && d <= 30) map[d] = row;
+    }
+
+    // Build all RAMADAN_DAYS days
+    const days = [];
+    for (let i = 1; i <= RAMADAN_DAYS; i++) {
+      const r  = map[i] || {};
+      const w  = parseAmt(r['Website']);
+      const c  = parseAmt(r['Card Machine']);
+      const ca = parseAmt(r['Cash']);
+      const b  = parseAmt(r['Bank Transfer']);
+      const dt = w + c + ca + b;
+      const date = new Date(RAMADAN_START);
+      date.setDate(date.getDate() + i - 1);
+      days.push({ day: i, date, website: w, card: c, cash: ca, bank: b, daily: dt, hasData: dt > 0 });
+    }
+
+    // Compute running totals
+    let rt = 0;
+    for (const d of days) { rt += d.daily; d.runningTotal = rt; }
+
+    const active   = days.filter(d => d.hasData);
+    const total    = rt;
+    const avg      = active.length ? total / active.length : 0;
+    const best     = active.reduce((b, d) => d.daily > (b?.daily||0) ? d : b, null);
+    const todayRow = days.find(d => d.day === Math.min(dayNum, RAMADAN_DAYS)) || null;
+    const remaining= Math.max(0, RAMADAN_DAYS - Math.min(dayNum, RAMADAN_DAYS));
+
+    const methods = METHODS.reduce((acc, m) => {
+      acc[m.key] = active.reduce((s, d) => s + d[m.key], 0);
+      return acc;
+    }, {});
+
+    // Projected total (simple linear projection)
+    const projected = active.length && dayNum <= RAMADAN_DAYS
+      ? Math.round(avg * RAMADAN_DAYS)
+      : null;
+
+    return { days, active, total, avg, best, todayRow, todayDayNum: dayNum, remaining, methods, projected };
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────
+  function renderHeader(data) {
+    const { total, todayDayNum, remaining } = data;
+    document.getElementById('header-total').textContent    = fmt(total);
+    document.getElementById('header-day-label').textContent = `Day ${Math.min(todayDayNum, RAMADAN_DAYS)} of ${RAMADAN_DAYS}`;
+    document.getElementById('last-updated').textContent    = new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+
+    const pct = Math.min(100, ((Math.min(todayDayNum, RAMADAN_DAYS)) / RAMADAN_DAYS) * 100);
+    document.getElementById('progress-fill').style.width  = pct + '%';
+    document.getElementById('progress-label').textContent = `Day ${Math.min(todayDayNum, RAMADAN_DAYS)}`;
+  }
+
+  function renderStats(data) {
+    const { total, avg, best, active, todayRow, todayDayNum, remaining, methods, projected } = data;
+    document.getElementById('stat-today').textContent     = todayRow ? fmt(todayRow.daily) : fmt(0);
+    document.getElementById('stat-today-day').textContent = Math.min(todayDayNum, RAMADAN_DAYS);
+    document.getElementById('stat-avg').textContent       = fmt(Math.round(avg));
+    document.getElementById('stat-best').textContent      = best ? fmt(best.daily) : '—';
+    document.getElementById('stat-best-day').textContent  = best ? `Day ${best.day}` : '—';
+    document.getElementById('stat-days').textContent      = `${active.length} / ${RAMADAN_DAYS}`;
+    document.getElementById('stat-remaining').textContent = remaining;
+
+    // Method totals + pct bars
+    const methodTotal = Object.values(methods).reduce((s, v) => s + v, 0);
+    METHODS.forEach(m => {
+      document.getElementById(`method-${m.key}`).textContent = fmt(methods[m.key]);
+      const pct = methodTotal > 0 ? (methods[m.key] / methodTotal * 100).toFixed(1) : 0;
+      document.getElementById(`pct-${m.key}`).style.width = pct + '%';
+    });
+  }
+
+  function renderCharts(data) {
+    const { days, methods } = data;
+    const labels = days.map(d => `D${d.day}`);
+
+    // ── Daily stacked bar + running total line ──
+    const ctx1 = document.getElementById('daily-chart').getContext('2d');
+    const datasets = METHODS.map(m => ({
+      type: 'bar',
+      label: m.label,
+      data: days.map(d => d[m.key]),
+      backgroundColor: m.bg,
+      borderRadius: 3,
+      stack: 'stack',
+    }));
+    datasets.push({
+      type: 'line',
+      label: 'Running Total',
+      data: days.map(d => d.runningTotal || null),
+      borderColor: '#1a6b3c',
+      backgroundColor: 'rgba(26,107,60,0.08)',
+      borderWidth: 2.5,
+      pointRadius: 2,
+      pointHoverRadius: 5,
+      fill: false,
+      yAxisID: 'y2',
+      tension: 0.35,
+      spanGaps: false,
+    });
+
+    if (dailyChart) dailyChart.destroy();
+    dailyChart = new Chart(ctx1, {
+      type: 'bar',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { font: { size: 11 }, boxWidth: 12, padding: 8 } },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.raw)}` } },
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+          y: {
+            beginAtZero: true, stacked: true,
+            ticks: { callback: v => fmt(v), font: { size: 10 } },
+            grid: { color: 'rgba(0,0,0,0.04)' },
+          },
+          y2: {
+            position: 'right', beginAtZero: true,
+            ticks: { callback: v => fmt(v), font: { size: 10 } },
+            grid: { display: false },
+          },
+        },
+      },
+    });
+
+    // ── Method doughnut ──
+    const ctx2 = document.getElementById('method-chart').getContext('2d');
+    const vals = METHODS.map(m => methods[m.key]);
+    const total = vals.reduce((a, b) => a + b, 0);
+
+    if (methodChart) methodChart.destroy();
+    methodChart = new Chart(ctx2, {
+      type: 'doughnut',
+      data: {
+        labels: METHODS.map(m => m.label),
+        datasets: [{ data: vals, backgroundColor: METHODS.map(m => m.bg), borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '68%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const pct = total > 0 ? (ctx.raw / total * 100).toFixed(1) : 0;
+                return ` ${ctx.label}: ${fmt(ctx.raw)} (${pct}%)`;
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Custom legend
+    document.getElementById('method-legend').innerHTML = METHODS.map((m, i) => {
+      const pct = total > 0 ? (vals[i] / total * 100).toFixed(1) : '0.0';
+      return `<div class="flex items-center justify-between text-xs py-0.5">
+        <div class="flex items-center gap-2">
+          <div class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${m.solid}"></div>
+          <span class="text-gray-500">${m.icon} ${m.label}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-gray-400">${pct}%</span>
+          <span class="font-semibold text-gray-700 tabular-nums">${fmt(vals[i])}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderTable(data) {
+    const { days, todayDayNum, methods, total } = data;
+
+    const rows = days.map(d => {
+      const isToday  = d.day === Math.min(todayDayNum, RAMADAN_DAYS);
+      const isFuture = d.day > todayDayNum;
+      const rowCls   = isToday ? 'today-row' : '';
+      const dimCls   = !d.hasData ? 'text-gray-300' : '';
+
+      // Show running total only up to today or if has data
+      const showRT = d.day <= todayDayNum || d.hasData;
+      const rtText = showRT && d.runningTotal > 0 ? fmt(d.runningTotal) : '—';
+      const rtCls  = showRT && d.runningTotal > 0 ? 'text-emerald-700 font-medium tabular-nums' : 'text-gray-300';
+
+      const todayBadge = isToday
+        ? `<span class="ml-2 text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium align-middle">Today</span>`
+        : '';
+
+      const cell = (v, def = '—') => v ? `<span class="tabular-nums">${fmt(v)}</span>` : `<span class="${dimCls}">${def}</span>`;
+
+      return `<tr class="${rowCls}">
+        <td class="px-5 py-2.5 font-medium whitespace-nowrap">${d.day}${todayBadge}</td>
+        <td class="px-5 py-2.5 text-gray-400 hide-sm">${fmtDate(d.date)}</td>
+        <td class="px-4 py-2.5 text-right">${cell(d.website)}</td>
+        <td class="px-4 py-2.5 text-right hide-sm">${cell(d.card)}</td>
+        <td class="px-4 py-2.5 text-right hide-sm">${cell(d.cash)}</td>
+        <td class="px-4 py-2.5 text-right hide-sm">${cell(d.bank)}</td>
+        <td class="px-4 py-2.5 text-right font-semibold ${d.hasData ? 'text-gray-800' : 'text-gray-300'} tabular-nums">
+          ${d.hasData ? fmt(d.daily) : '—'}
+        </td>
+        <td class="px-5 py-2.5 text-right ${rtCls}">${rtText}</td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('table-body').innerHTML = rows;
+
+    // Footer totals
+    document.getElementById('foot-website').textContent = fmt(methods.website);
+    document.getElementById('foot-card').textContent    = fmt(methods.card);
+    document.getElementById('foot-cash').textContent    = fmt(methods.cash);
+    document.getElementById('foot-bank').textContent    = fmt(methods.bank);
+    document.getElementById('foot-daily').textContent   = fmt(total);
+    document.getElementById('foot-total').textContent   = fmt(total);
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // Main
+  // ─────────────────────────────────────────────────────────
+  async function loadData() {
+    document.getElementById('loading').classList.remove('hidden');
+    document.getElementById('main').classList.add('hidden');
+    document.getElementById('error-box').classList.add('hidden');
+
+    try {
+      const data = await fetchAndProcess();
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('main').classList.remove('hidden');
+      renderHeader(data);
+      renderStats(data);
+      renderCharts(data);
+      renderTable(data);
+    } catch (err) {
+      console.error('Failed to load:', err);
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('error-box').classList.remove('hidden');
+      document.getElementById('error-msg').textContent = err?.message || 'Failed to load data from Google Sheets.';
+    }
+  }
+
+  loadData();
+  setInterval(loadData, REFRESH_MS);
+  </script>
+</body>
+</html>
