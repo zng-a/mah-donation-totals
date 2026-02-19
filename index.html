@@ -228,6 +228,80 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* ── PIN screen ── */
+    .pin-screen {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 20px;
+      background: #0f2044;
+    }
+    .pin-title {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+      margin-bottom: 6px;
+    }
+    .pin-heading {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 22px;
+      font-weight: 600;
+      color: white;
+      margin-bottom: 36px;
+    }
+    .pin-digits {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .pin-digit {
+      width: 56px;
+      height: 64px;
+      background: rgba(255,255,255,0.08);
+      border: 2px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      color: white;
+      text-align: center;
+      outline: none;
+      transition: border-color 0.15s;
+      caret-color: transparent;
+    }
+    .pin-digit:focus {
+      border-color: rgba(255,255,255,0.6);
+      background: rgba(255,255,255,0.12);
+    }
+    .pin-error {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      color: #ff7b7b;
+      height: 20px;
+      margin-bottom: 28px;
+      text-align: center;
+    }
+    .pin-btn {
+      background: white;
+      color: #0f2044;
+      border: none;
+      border-radius: 10px;
+      padding: 14px 40px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      max-width: 248px;
+      transition: opacity 0.15s;
+    }
+    .pin-btn:active { opacity: 0.85; }
+
     .error-card {
       margin: 20px;
       background: white;
@@ -264,8 +338,22 @@
     </div>
   </header>
 
+  <!-- PIN screen -->
+  <div id="pin-screen" class="pin-screen">
+    <div class="pin-title">MAH Donation Tracker</div>
+    <div class="pin-heading">Enter PIN to continue</div>
+    <div class="pin-digits">
+      <input class="pin-digit" id="p0" type="password" inputmode="numeric" maxlength="1" pattern="[0-9]" />
+      <input class="pin-digit" id="p1" type="password" inputmode="numeric" maxlength="1" pattern="[0-9]" />
+      <input class="pin-digit" id="p2" type="password" inputmode="numeric" maxlength="1" pattern="[0-9]" />
+      <input class="pin-digit" id="p3" type="password" inputmode="numeric" maxlength="1" pattern="[0-9]" />
+    </div>
+    <div class="pin-error" id="pin-error"></div>
+    <button class="pin-btn" onclick="checkPin()">Unlock</button>
+  </div>
+
   <!-- Loading -->
-  <div id="loading" class="loader">
+  <div id="loading" class="loader" style="display:none;">
     <div class="spinner"></div>
     <span>Loading…</span>
   </div>
@@ -355,6 +443,53 @@
   </main>
 
   <script>
+  // ── PIN ──────────────────────────────────────────────────
+  const CORRECT_PIN = '7074';
+
+  function initPin() {
+    if (sessionStorage.getItem('mah_unlocked') === '1') {
+      showApp();
+      return;
+    }
+    // Auto-advance digits and handle backspace
+    const inputs = [0,1,2,3].map(i => document.getElementById('p' + i));
+    inputs.forEach((el, i) => {
+      el.addEventListener('input', () => {
+        el.value = el.value.replace(/\D/g, '').slice(-1);
+        if (el.value && i < 3) inputs[i + 1].focus();
+        if (inputs.every(x => x.value)) checkPin();
+      });
+      el.addEventListener('keydown', e => {
+        if (e.key === 'Backspace' && !el.value && i > 0) inputs[i - 1].focus();
+      });
+    });
+    inputs[0].focus();
+  }
+
+  function checkPin() {
+    const inputs = [0,1,2,3].map(i => document.getElementById('p' + i));
+    const entered = inputs.map(x => x.value).join('');
+    if (entered.length < 4) return;
+    if (entered === CORRECT_PIN) {
+      sessionStorage.setItem('mah_unlocked', '1');
+      showApp();
+    } else {
+      document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.';
+      inputs.forEach(x => { x.value = ''; x.style.borderColor = 'rgba(255,100,100,0.6)'; });
+      inputs[0].focus();
+      setTimeout(() => {
+        inputs.forEach(x => x.style.borderColor = '');
+        document.getElementById('pin-error').textContent = '';
+      }, 1800);
+    }
+  }
+
+  function showApp() {
+    document.getElementById('pin-screen').style.display = 'none';
+    document.getElementById('loading').style.display    = 'flex';
+    loadData();
+  }
+
   // ── Config ───────────────────────────────────────────────
   const SHEET_ID      = '11RKZ1P2Goi0PIG7Ydi0Sr0c075wJX9UbnTJLq8gpeGU';
   const RAMADAN_START = new Date('2026-02-17T00:00:00'); // adjust if needed
@@ -561,8 +696,10 @@
     }
   }
 
-  loadData();
-  setInterval(loadData, REFRESH_MS);
+  initPin();
+  setInterval(() => {
+    if (sessionStorage.getItem('mah_unlocked') === '1') loadData();
+  }, REFRESH_MS);
   </script>
 </body>
 </html>
