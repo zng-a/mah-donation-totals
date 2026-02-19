@@ -4,17 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MAH Donation Tracker</title>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'DM Sans', sans-serif;
       background: #f2f4f8;
       color: #0f2044;
       -webkit-font-smoothing: antialiased;
+    }
+
+    /* Space Grotesk for all numbers / amounts */
+    .num {
+      font-family: 'Space Grotesk', sans-serif;
     }
 
     /* ── Header ── */
@@ -32,6 +37,7 @@
       margin-bottom: 6px;
     }
     .header-total {
+      font-family: 'Space Grotesk', sans-serif;
       font-size: 52px;
       font-weight: 700;
       letter-spacing: -2px;
@@ -103,6 +109,7 @@
       padding: 16px;
     }
     .stat-value {
+      font-family: 'Space Grotesk', sans-serif;
       font-size: 26px;
       font-weight: 700;
       letter-spacing: -0.5px;
@@ -125,8 +132,8 @@
     .method-row:last-child { border-bottom: none; }
     .method-name { font-size: 14px; font-weight: 500; }
     .method-right { text-align: right; }
-    .method-amount { font-size: 15px; font-weight: 600; }
-    .method-pct { font-size: 11px; color: #8a93a8; margin-top: 1px; }
+    .method-amount { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600; }
+    .method-pct { font-family: 'Space Grotesk', sans-serif; font-size: 11px; color: #8a93a8; margin-top: 1px; }
     .method-bar-track {
       height: 2px;
       background: #f0f2f6;
@@ -144,40 +151,54 @@
     .chart-wrap { position: relative; height: 190px; }
 
     /* ── Table ── */
-    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -18px; padding: 0 18px; }
+    table { border-collapse: collapse; font-size: 12px; white-space: nowrap; width: 100%; }
     thead th {
-      font-size: 11px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 10px;
       font-weight: 600;
       color: #8a93a8;
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      padding: 0 0 10px;
+      padding: 0 8px 10px 0;
       text-align: right;
     }
-    thead th:first-child { text-align: left; }
+    thead th:first-child { text-align: left; padding-left: 0; }
     tbody tr { border-top: 1px solid #f0f2f6; }
-    tbody td { padding: 10px 0; text-align: right; }
-    tbody td:first-child { text-align: left; font-weight: 500; }
-    .today-row td { color: #0f2044; font-weight: 600; }
+    tbody td {
+      font-family: 'Space Grotesk', sans-serif;
+      padding: 9px 8px 9px 0;
+      text-align: right;
+    }
+    tbody td:first-child { text-align: left; font-weight: 500; padding-left: 0; min-width: 52px; }
+    .today-row td { font-weight: 600; }
     .today-badge {
-      display: inline-block;
+      display: block;
       background: #0f2044;
       color: white;
-      font-size: 9px;
-      font-weight: 700;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 8px;
+      font-weight: 600;
       letter-spacing: 0.05em;
       text-transform: uppercase;
-      padding: 2px 5px;
-      border-radius: 4px;
-      margin-left: 6px;
-      vertical-align: middle;
+      padding: 1px 4px;
+      border-radius: 3px;
+      margin-top: 2px;
+      width: fit-content;
     }
     .dim { color: #d4d8e2; }
     .rt { color: #0f2044; }
+    .col-total { font-weight: 600; }
 
     tfoot tr { border-top: 2px solid #0f2044; }
-    tfoot td { padding: 10px 0; font-weight: 700; text-align: right; font-size: 14px; }
-    tfoot td:first-child { text-align: left; }
+    tfoot td {
+      font-family: 'Space Grotesk', sans-serif;
+      padding: 10px 8px 10px 0;
+      font-weight: 700;
+      text-align: right;
+      font-size: 12px;
+    }
+    tfoot td:first-child { text-align: left; padding-left: 0; font-family: 'DM Sans', sans-serif; }
 
     /* ── Updated line ── */
     .updated {
@@ -299,23 +320,33 @@
       <!-- Table -->
       <div class="card">
         <div class="card-label">Day by Day</div>
-        <table>
-          <thead>
-            <tr>
-              <th style="text-align:left;">Day</th>
-              <th>Total</th>
-              <th>Running</th>
-            </tr>
-          </thead>
-          <tbody id="table-body"></tbody>
-          <tfoot>
-            <tr>
-              <td>Total</td>
-              <td id="foot-daily">—</td>
-              <td id="foot-total">—</td>
-            </tr>
-          </tfoot>
-        </table>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Day</th>
+                <th>Website</th>
+                <th>Card</th>
+                <th>Cash</th>
+                <th>Bank</th>
+                <th>Total</th>
+                <th>Running</th>
+              </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+            <tfoot>
+              <tr>
+                <td>Total</td>
+                <td id="foot-website">—</td>
+                <td id="foot-card">—</td>
+                <td id="foot-cash">—</td>
+                <td id="foot-bank">—</td>
+                <td id="foot-daily">—</td>
+                <td id="foot-total">—</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </div>
 
       <div class="updated">Updated <span id="last-updated">—</span> · auto-refreshes every 5 min</div>
@@ -493,15 +524,24 @@
       const isToday = d.day === curDay;
       const badge   = isToday ? `<span class="today-badge">Today</span>` : '';
       const showRT  = d.day <= todayDayNum || d.hasData;
+      const cell    = v => v ? fmt(v) : `<span class="dim">—</span>`;
       return `<tr class="${isToday ? 'today-row' : ''}">
         <td>${d.day}${badge}</td>
-        <td class="${d.hasData ? '' : 'dim'}">${d.hasData ? fmt(d.daily) : '—'}</td>
+        <td>${cell(d.website)}</td>
+        <td>${cell(d.card)}</td>
+        <td>${cell(d.cash)}</td>
+        <td>${cell(d.bank)}</td>
+        <td class="${d.hasData ? 'col-total' : 'dim'}">${d.hasData ? fmt(d.daily) : '—'}</td>
         <td class="${showRT && d.runningTotal ? 'rt' : 'dim'}">${showRT && d.runningTotal ? fmt(d.runningTotal) : '—'}</td>
       </tr>`;
     }).join('');
 
-    document.getElementById('foot-daily').textContent = fmt(total);
-    document.getElementById('foot-total').textContent = fmt(total);
+    document.getElementById('foot-website').textContent = fmt(methods.website);
+    document.getElementById('foot-card').textContent    = fmt(methods.card);
+    document.getElementById('foot-cash').textContent    = fmt(methods.cash);
+    document.getElementById('foot-bank').textContent    = fmt(methods.bank);
+    document.getElementById('foot-daily').textContent   = fmt(total);
+    document.getElementById('foot-total').textContent   = fmt(total);
   }
 
   // ── Load ─────────────────────────────────────────────────
