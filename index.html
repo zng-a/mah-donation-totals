@@ -417,6 +417,7 @@
                 <th>Card</th>
                 <th>Cash</th>
                 <th>Bank</th>
+                <th>LaunchGood</th>
                 <th>Total</th>
                 <th>Running</th>
               </tr>
@@ -429,6 +430,7 @@
                 <td id="foot-card">—</td>
                 <td id="foot-cash">—</td>
                 <td id="foot-bank">—</td>
+                <td id="foot-launchgood">—</td>
                 <td id="foot-daily">—</td>
                 <td id="foot-total">—</td>
               </tr>
@@ -500,10 +502,11 @@
   const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv`;
 
   const METHODS = [
-    { key: 'website', label: 'Website'       },
-    { key: 'card',    label: 'Card Machine'  },
-    { key: 'cash',    label: 'Cash'          },
-    { key: 'bank',    label: 'Bank Transfer' },
+    { key: 'website',    label: 'Website'       },
+    { key: 'card',       label: 'Card Machine'  },
+    { key: 'cash',       label: 'Cash'          },
+    { key: 'bank',       label: 'Bank Transfer' },
+    { key: 'launchgood', label: 'LaunchGood'    },
   ];
 
   let chartInstance = null;
@@ -550,10 +553,11 @@
       const c  = parseAmt(r['Card Machine']);
       const ca = parseAmt(r['Cash']);
       const b  = parseAmt(r['Bank Transfer']);
-      const dt = w + c + ca + b;
+      const lg = parseAmt(r['LaunchGood']);
+      const dt = w + c + ca + b + lg;
       const date = new Date(RAMADAN_START);
       date.setDate(date.getDate() + i - 1);
-      days.push({ day: i, date, website: w, card: c, cash: ca, bank: b, daily: dt, hasData: dt > 0 });
+      days.push({ day: i, date, website: w, card: c, cash: ca, bank: b, launchgood: lg, daily: dt, hasData: dt > 0 });
     }
 
     let rt = 0;
@@ -666,17 +670,19 @@
         <td>${cell(d.card)}</td>
         <td>${cell(d.cash)}</td>
         <td>${cell(d.bank)}</td>
+        <td>${cell(d.launchgood)}</td>
         <td class="${d.hasData ? 'col-total' : 'dim'}">${d.hasData ? fmt(d.daily) : '—'}</td>
         <td class="${showRT && d.runningTotal ? 'rt' : 'dim'}">${showRT && d.runningTotal ? fmt(d.runningTotal) : '—'}</td>
       </tr>`;
     }).join('');
 
-    document.getElementById('foot-website').textContent = fmt(methods.website);
-    document.getElementById('foot-card').textContent    = fmt(methods.card);
-    document.getElementById('foot-cash').textContent    = fmt(methods.cash);
-    document.getElementById('foot-bank').textContent    = fmt(methods.bank);
-    document.getElementById('foot-daily').textContent   = fmt(total);
-    document.getElementById('foot-total').textContent   = fmt(total);
+    document.getElementById('foot-website').textContent    = fmt(methods.website);
+    document.getElementById('foot-card').textContent       = fmt(methods.card);
+    document.getElementById('foot-cash').textContent       = fmt(methods.cash);
+    document.getElementById('foot-bank').textContent       = fmt(methods.bank);
+    document.getElementById('foot-launchgood').textContent = fmt(methods.launchgood);
+    document.getElementById('foot-daily').textContent      = fmt(total);
+    document.getElementById('foot-total').textContent      = fmt(total);
   }
 
   // ── Load ─────────────────────────────────────────────────
