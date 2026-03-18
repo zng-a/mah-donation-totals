@@ -546,6 +546,14 @@
       if (d >= 1 && d <= 30) map[d] = row;
     }
 
+    // Case-insensitive column finder (handles spacing/capitalisation variations)
+    const sampleRow = Object.values(map)[0] || {};
+    const findKey = name => {
+      const lower = name.toLowerCase().replace(/\s+/g, '');
+      return Object.keys(sampleRow).find(k => k.trim().toLowerCase().replace(/\s+/g, '') === lower) || name;
+    };
+    const lgKey = findKey('LaunchGood');
+
     const days = [];
     for (let i = 1; i <= RAMADAN_DAYS; i++) {
       const r  = map[i] || {};
@@ -553,7 +561,7 @@
       const c  = parseAmt(r['Card Machine']);
       const ca = parseAmt(r['Cash']);
       const b  = parseAmt(r['Bank Transfer']);
-      const lg = parseAmt(r['LaunchGood']);
+      const lg = parseAmt(r[lgKey]);
       const dt = w + c + ca + b + lg;
       const date = new Date(RAMADAN_START);
       date.setDate(date.getDate() + i - 1);
