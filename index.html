@@ -495,7 +495,7 @@
   // ── Config ───────────────────────────────────────────────
   const SHEET_ID      = '11RKZ1P2Goi0PIG7Ydi0Sr0c075wJX9UbnTJLq8gpeGU';
   const RAMADAN_START = new Date('2026-02-17T00:00:00'); // adjust if needed
-  const RAMADAN_DAYS  = 30;
+  const RAMADAN_DAYS  = 32;
   const CURRENCY      = '£';
   const REFRESH_MS    = 5 * 60 * 1000;
 
@@ -543,7 +543,7 @@
     const map = {};
     for (const row of rows) {
       const d = parseInt(row['Date'] || '');
-      if (d >= 1 && d <= 30) map[d] = row;
+      if (d >= 1 && d <= 32) map[d] = row;
     }
 
     // Case-insensitive column finder (handles spacing/capitalisation variations)
@@ -673,7 +673,7 @@
       const showRT  = d.day <= todayDayNum || d.hasData;
       const cell    = v => v ? fmt(v) : `<span class="dim">—</span>`;
       return `<tr class="${isToday ? 'today-row' : ''}">
-        <td>${d.day}${badge}</td>
+        <td>${d.day === 32 ? 'Eid' : d.day}${badge}</td>
         <td>${cell(d.website)}</td>
         <td>${cell(d.card)}</td>
         <td>${cell(d.cash)}</td>
